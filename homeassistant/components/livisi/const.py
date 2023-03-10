@@ -15,6 +15,7 @@ LIVISI_STATE_CHANGE: Final = "livisi_state_change"
 LIVISI_REACHABILITY_CHANGE: Final = "livisi_reachability_change"
 
 SWITCH_DEVICE_TYPES: Final = ["ISS", "ISS2", "PSS", "PSSO"]
+VARIABLE_DEVICE_TYPE: Final = "VariableActuator"
 VRCC_DEVICE_TYPE: Final = "VRCC"
 
 MAX_TEMPERATURE: Final = 30.0

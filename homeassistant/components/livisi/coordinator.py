@@ -84,13 +84,23 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
         return await self.aiolivisi.async_get_devices()
 
     async def async_get_pss_state(self, capability: str) -> bool | None:
-        """Set the PSS state."""
+        """Get the PSS state."""
         response: dict[str, Any] | None = await self.aiolivisi.async_get_device_state(
             capability[1:]
         )
         if response is None:
             return None
         on_state = response["onState"]
+        return on_state["value"]
+
+    async def async_get_variable_value(self, capability: str) -> bool | None:
+        """Get the variable value."""
+        response: dict[str, Any] | None = await self.aiolivisi.async_get_device_state(
+            capability[1:]
+        )
+        if response is None:
+            return None
+        on_state = response["value"]
         return on_state["value"]
 
     async def async_get_vrcc_target_temperature(self, capability: str) -> float | None:
