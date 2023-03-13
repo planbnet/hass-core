@@ -19,7 +19,6 @@ from .coordinator import LivisiDataUpdateCoordinator
 PLATFORMS: Final = [
     Platform.CLIMATE,
     Platform.SWITCH,
-    Platform.BINARY_SENSOR,
     Platform.SIREN,
 ]
 
