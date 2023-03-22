@@ -339,6 +339,9 @@ class CalendarEvent:
         def skip_none(obj: Iterable[tuple[str, Any]]) -> dict[str, str]:
             return {k: v for k, v in obj if v is not None}
 
+        if self.start == self.end:
+            self.end += datetime.timedelta(seconds=60)
+
         try:
             CALENDAR_EVENT_SCHEMA(dataclasses.asdict(self, dict_factory=skip_none))
         except vol.Invalid as err:
