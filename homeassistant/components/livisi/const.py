@@ -5,6 +5,8 @@ from typing import Final
 LOGGER = logging.getLogger(__package__)
 DOMAIN = "livisi"
 
+LIVISI_EVENT = f"{DOMAIN}_event"
+
 CONF_HOST = "host"
 CONF_PASSWORD: Final = "password"
 AVATAR = "Avatar"
@@ -15,6 +17,7 @@ LIVISI_STATE_CHANGE: Final = "livisi_state_change"
 LIVISI_REACHABILITY_CHANGE: Final = "livisi_reachability_change"
 
 SWITCH_DEVICE_TYPES: Final = ["ISS", "ISS2", "PSS", "PSSO"]
+BUTTON_DEVICE_TYPES: Final = ["ISS2", "WSS2", "BRM8"]
 VRCC_DEVICE_TYPE: Final = "VRCC"
 
 EVENT_STATE_CHANGED = "StateChanged"

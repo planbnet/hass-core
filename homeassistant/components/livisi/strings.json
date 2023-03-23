@@ -14,5 +14,13 @@
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
       "wrong_ip_address": "The IP address is incorrect or the SHC cannot be reached locally."
     }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "button_1_pressed": "Button 1 pressed",
+      "button_2_pressed": "Button 2 pressed",
+      "button_1_long_pressed": "Button 1 long pressed",
+      "button_2_long_pressed": "Button 2 long pressed"
+    }
   }
 }
