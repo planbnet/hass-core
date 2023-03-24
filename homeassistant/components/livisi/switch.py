@@ -89,7 +89,9 @@ class LivisiSwitch(LivisiEntity, SwitchEntity):
         """Register callbacks."""
         await super().async_added_to_hass()
 
-        response = await self.coordinator.async_get_pss_state(self._capability_id)
+        response = await self.coordinator.async_get_device_state(
+            self._capability_id, "onState"
+        )
         if response is None:
             self._attr_is_on = False
             self._attr_available = False
@@ -145,7 +147,9 @@ class LivisiVariable(LivisiEntity, SwitchEntity):
         """Register callbacks."""
         await super().async_added_to_hass()
 
-        response = await self.coordinator.async_get_variable_value(self._capability_id)
+        response = await self.coordinator.async_get_device_state(
+            self._capability_id, "value"
+        )
         if response is None:
             self._attr_available = False
         else:
