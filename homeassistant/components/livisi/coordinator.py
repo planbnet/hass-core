@@ -7,6 +7,12 @@ from typing import Any
 from aiohttp import ClientConnectorError
 from aiolivisi import AioLivisi, LivisiEvent, Websocket
 
+from aiolivisi.const import (
+    EVENT_STATE_CHANGED as LIVISI_EVENT_STATE_CHANGED,
+    EVENT_BUTTON_PRESSED as LIVISI_EVENT_BUTTON_PRESSED,
+    EVENT_MOTION_DETECTED as LIVISI_EVENT_MOTION_DETECTED,
+)
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -20,7 +26,7 @@ from .const import (
     CONF_PASSWORD,
     DEVICE_POLLING_DELAY,
     EVENT_BUTTON_PRESSED,
-    EVENT_STATE_CHANGED,
+    EVENT_MOTION_DETECTED,
     LIVISI_REACHABILITY_CHANGE,
     LIVISI_STATE_CHANGE,
     LOGGER,
@@ -142,17 +148,25 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     def on_data(self, event_data: LivisiEvent) -> None:
         """Define a handler to fire when the data is received."""
 
-        if event_data.type == EVENT_BUTTON_PRESSED:
+        if event_data.type == LIVISI_EVENT_BUTTON_PRESSED:
             device_id = self.capability_to_device.get(event_data.source)
             if device_id is not None:
                 livisi_event_data = {
                     "device_id": device_id,
-                    "type": "button_pressed",
+                    "type": EVENT_BUTTON_PRESSED,
                     "button_index": event_data.properties.get("index", 0),
                     "press_type": event_data.properties.get("type", "ShortPress"),
                 }
                 self.hass.bus.async_fire("livisi_event", livisi_event_data)
-        elif event_data.type == EVENT_STATE_CHANGED:
+        elif event_data.type == LIVISI_EVENT_MOTION_DETECTED:
+            device_id = self.capability_to_device.get(event_data.source)
+            if device_id is not None:
+                livisi_event_data = {
+                    "device_id": device_id,
+                    "type": EVENT_MOTION_DETECTED,
+                }
+                self.hass.bus.async_fire("livisi_event", livisi_event_data)
+        elif event_data.type == LIVISI_EVENT_STATE_CHANGED:
             if event_data.onState is not None:
                 async_dispatcher_send(
                     self.hass,

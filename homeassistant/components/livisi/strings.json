@@ -20,7 +20,8 @@
       "button_1_pressed": "Button 1 pressed",
       "button_2_pressed": "Button 2 pressed",
       "button_1_long_pressed": "Button 1 long pressed",
-      "button_2_long_pressed": "Button 2 long pressed"
+      "button_2_long_pressed": "Button 2 long pressed",
+      "motion_detected": "Motion detected"
     }
   }
 }
