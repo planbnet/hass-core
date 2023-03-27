@@ -84,7 +84,9 @@ class LivisiSiren(LivisiEntity, SirenEntity):
         """Register callbacks."""
         await super().async_added_to_hass()
 
-        response = await self.coordinator.async_get_device_state(self._capability_id)
+        response = await self.coordinator.async_get_device_state(
+            self._capability_id, "onState"
+        )
         if response is None:
             self._attr_available = False
         else:
