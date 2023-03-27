@@ -15,9 +15,11 @@ LIVISI_STATE_CHANGE: Final = "livisi_state_change"
 LIVISI_REACHABILITY_CHANGE: Final = "livisi_reachability_change"
 
 SWITCH_DEVICE_TYPES: Final = ["ISS", "ISS2", "PSS", "PSSO"]
+MOTION_DEVICE_TYPES: Final = ["WMD", "WMDO"]
 VRCC_DEVICE_TYPE: Final = "VRCC"
 WDS_DEVICE_TYPE: Final = "WDS"
 
+EVENT_MOTION_DETECTED = "motion_detected"
 
 MAX_TEMPERATURE: Final = 30.0
 MIN_TEMPERATURE: Final = 6.0

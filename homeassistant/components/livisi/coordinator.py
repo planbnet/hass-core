@@ -117,10 +117,13 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             LIVISI_STATE_CHANGE, event_data.source, event_data.vrccData
         )
         self._async_dispatcher_send(
-            LIVISI_REACHABILITY_CHANGE, event_data.source, event_data.isReachable
+            LIVISI_STATE_CHANGE, event_data.source, event_data.isOpen
         )
         self._async_dispatcher_send(
-            LIVISI_STATE_CHANGE, event_data.source, event_data.isOpen
+            LIVISI_STATE_CHANGE, event_data.source, event_data.luminance
+        )
+        self._async_dispatcher_send(
+            LIVISI_REACHABILITY_CHANGE, event_data.source, event_data.isReachable
         )
 
     async def on_close(self) -> None:
