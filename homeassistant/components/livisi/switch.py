@@ -10,7 +10,13 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, LIVISI_STATE_CHANGE, LOGGER, SWITCH_DEVICE_TYPES
+from .const import (
+    DOMAIN,
+    LIVISI_STATE_CHANGE,
+    LOGGER,
+    SWITCH_DEVICE_TYPES,
+    VARIABLE_DEVICE_TYPE,
+)
 from .coordinator import LivisiDataUpdateCoordinator
 from .entity import LivisiEntity
 
@@ -29,16 +35,18 @@ async def async_setup_entry(
         shc_devices: list[dict[str, Any]] = coordinator.data
         entities: list[SwitchEntity] = []
         for device in shc_devices:
-            if (
-                device["type"] in SWITCH_DEVICE_TYPES
-                and device["id"] not in coordinator.devices
-            ):
-                livisi_switch: SwitchEntity = LivisiSwitch(
-                    config_entry, coordinator, device
-                )
-                LOGGER.debug("Include device type: %s", device["type"])
-                coordinator.devices.add(device["id"])
-                entities.append(livisi_switch)
+            if device["id"] not in coordinator.devices:
+                switch = None
+                if device["type"] in SWITCH_DEVICE_TYPES:
+                    switch = LivisiSwitch(config_entry, coordinator, device)
+                elif device["type"] == VARIABLE_DEVICE_TYPE:
+                    switch = LivisiVariable(config_entry, coordinator, device)
+
+                if switch is not None:
+                    LOGGER.debug("Include device type: %s", device["type"])
+                    coordinator.devices.add(device["id"])
+                    entities.append(switch)
+
         async_add_entities(entities)
 
     config_entry.async_on_unload(
@@ -86,6 +94,63 @@ class LivisiSwitch(LivisiEntity, SwitchEntity):
         )
         if response is None:
             self._attr_is_on = False
+            self._attr_available = False
+        else:
+            self._attr_is_on = response
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                f"{LIVISI_STATE_CHANGE}_{self._capability_id}",
+                self.update_states,
+            )
+        )
+
+    @callback
+    def update_states(self, state: bool) -> None:
+        """Update the state of the switch device."""
+        self._attr_is_on = state
+        self.async_write_ha_state()
+
+
+class LivisiVariable(LivisiEntity, SwitchEntity):
+    """Represents a Livisi boolean variable."""
+
+    def __init__(
+        self,
+        config_entry: ConfigEntry,
+        coordinator: LivisiDataUpdateCoordinator,
+        device: dict[str, Any],
+    ) -> None:
+        """Initialize the Livisi switch."""
+        super().__init__(config_entry, coordinator, device)
+        self._capability_id = self.capabilities["BooleanStateActuator"]
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the entity on."""
+        response = await self.aio_livisi.async_variable_set_value(
+            self._capability_id, value=True
+        )
+        if response is None:
+            self._attr_available = False
+            raise HomeAssistantError(f"Failed to set {self._attr_name}")
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the entity off."""
+        response = await self.aio_livisi.async_variable_set_value(
+            self._capability_id, value=False
+        )
+        if response is None:
+            self._attr_available = False
+            raise HomeAssistantError(f"Failed to unset {self._attr_name}")
+
+    async def async_added_to_hass(self) -> None:
+        """Register callbacks."""
+        await super().async_added_to_hass()
+
+        response = await self.coordinator.async_get_device_state(
+            self._capability_id, "value"
+        )
+        if response is None:
             self._attr_available = False
         else:
             self._attr_is_on = response
