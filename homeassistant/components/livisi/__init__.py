@@ -17,9 +17,10 @@ from .const import DOMAIN
 from .coordinator import LivisiDataUpdateCoordinator
 
 PLATFORMS: Final = [
+    Platform.BINARY_SENSOR,
     Platform.CLIMATE,
-    Platform.SWITCH,
     Platform.SIREN,
+    Platform.SWITCH,
 ]
 
 

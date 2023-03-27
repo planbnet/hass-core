@@ -17,6 +17,8 @@ LIVISI_REACHABILITY_CHANGE: Final = "livisi_reachability_change"
 SWITCH_DEVICE_TYPES: Final = ["ISS", "ISS2", "PSS", "PSSO"]
 SIREN_DEVICE_TYPES: Final = ["WSD", "WSD2"]
 VRCC_DEVICE_TYPE: Final = "VRCC"
+WDS_DEVICE_TYPE: Final = "WDS"
+
 
 MAX_TEMPERATURE: Final = 30.0
 MIN_TEMPERATURE: Final = 6.0
