@@ -88,7 +88,7 @@ async def async_get_triggers(
             for trigger_type in MOTION_TRIGGER_TYPES
         ]
 
-    return []
+    return triggers
 
 
 async def async_attach_trigger(
