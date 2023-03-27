@@ -56,10 +56,12 @@ class LivisiBinarySensor(LivisiEntity, BinarySensorEntity):
         coordinator: LivisiDataUpdateCoordinator,
         device: dict[str, Any],
         capability_name: str,
+        property_name: str,
     ) -> None:
         """Initialize the Livisi sensor."""
         super().__init__(config_entry, coordinator, device)
         self._capability_id = self.capabilities[capability_name]
+        self._property_name = property_name
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
@@ -72,6 +74,14 @@ class LivisiBinarySensor(LivisiEntity, BinarySensorEntity):
                 self.update_states,
             )
         )
+
+        response = await self.coordinator.async_get_device_state(
+            self._capability_id, self._property_name
+        )
+        if response is None:
+            self._attr_available = False
+        else:
+            self._attr_is_on = response
 
     @callback
     def update_states(self, state: bool) -> None:
@@ -90,7 +100,9 @@ class LivisiWindowDoorSensor(LivisiBinarySensor):
         device: dict[str, Any],
     ) -> None:
         """Initialize the Livisi window/door sensor."""
-        super().__init__(config_entry, coordinator, device, "WindowDoorSensor")
+        super().__init__(
+            config_entry, coordinator, device, "WindowDoorSensor", "isOpen"
+        )
 
         self._attr_device_class = (
             BinarySensorDeviceClass.DOOR
@@ -98,13 +110,18 @@ class LivisiWindowDoorSensor(LivisiBinarySensor):
             else BinarySensorDeviceClass.WINDOW
         )
 
-    async def async_added_to_hass(self) -> None:
-        """Get current state."""
-        await super().async_added_to_hass()
-        response = await self.coordinator.async_get_device_state(
-            self._capability_id, "isOpen"
+
+class LivisiSmokeSensor(LivisiBinarySensor):
+    """Represents a Livisi Window/Door Sensor as a Binary Sensor Entity."""
+
+    def __init__(
+        self,
+        config_entry: ConfigEntry,
+        coordinator: LivisiDataUpdateCoordinator,
+        device: dict[str, Any],
+    ) -> None:
+        """Initialize the Livisi window/door sensor."""
+        super().__init__(
+            config_entry, coordinator, device, "SmokeDetectorSensor", "isSmokeDetected"
         )
-        if response is None:
-            self._attr_available = False
-        else:
-            self._attr_is_on = response
+        self._attr_device_class = BinarySensorDeviceClass.SMOKE
