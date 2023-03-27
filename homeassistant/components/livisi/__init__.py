@@ -20,6 +20,7 @@ PLATFORMS: Final = [
     Platform.BINARY_SENSOR,
     Platform.CLIMATE,
     Platform.SIREN,
+    Platform.SENSOR,
     Platform.SWITCH,
 ]
 

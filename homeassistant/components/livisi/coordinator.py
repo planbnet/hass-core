@@ -8,6 +8,7 @@ from aiohttp import ClientConnectorError
 from aiolivisi import AioLivisi, LivisiEvent, Websocket
 from aiolivisi.const import (
     EVENT_BUTTON_PRESSED as LIVISI_EVENT_BUTTON_PRESSED,
+    EVENT_MOTION_DETECTED as LIVISI_EVENT_MOTION_DETECTED,
     EVENT_STATE_CHANGED as LIVISI_EVENT_STATE_CHANGED,
 )
 from aiolivisi.errors import TokenExpiredException
@@ -25,6 +26,7 @@ from .const import (
     CONF_PASSWORD,
     DEVICE_POLLING_DELAY,
     EVENT_BUTTON_PRESSED,
+    EVENT_MOTION_DETECTED,
     LIVISI_REACHABILITY_CHANGE,
     LIVISI_STATE_CHANGE,
     LOGGER,
@@ -132,6 +134,14 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
                     "press_type": event_data.properties.get("type", "ShortPress"),
                 }
                 self.hass.bus.async_fire("livisi_event", livisi_event_data)
+        elif event_data.type == LIVISI_EVENT_MOTION_DETECTED:
+            device_id = self.capability_to_device.get(event_data.source)
+            if device_id is not None:
+                livisi_event_data = {
+                    "device_id": device_id,
+                    "type": EVENT_MOTION_DETECTED,
+                }
+                self.hass.bus.async_fire("livisi_event", livisi_event_data)
         elif event_data.type == LIVISI_EVENT_STATE_CHANGED:
             self._async_dispatcher_send(
                 LIVISI_STATE_CHANGE, event_data.source, event_data.onState
@@ -141,6 +151,9 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             )
             self._async_dispatcher_send(
                 LIVISI_STATE_CHANGE, event_data.source, event_data.isOpen
+            )
+            self._async_dispatcher_send(
+                LIVISI_STATE_CHANGE, event_data.source, event_data.luminance
             )
             self._async_dispatcher_send(
                 LIVISI_REACHABILITY_CHANGE, event_data.source, event_data.isReachable

@@ -5,6 +5,8 @@ from typing import Final
 LOGGER = logging.getLogger(__package__)
 DOMAIN = "livisi"
 
+LIVISI_EVENT = f"{DOMAIN}_event"
+
 CONF_HOST = "host"
 CONF_PASSWORD: Final = "password"
 AVATAR = "Avatar"
@@ -17,11 +19,13 @@ LIVISI_REACHABILITY_CHANGE: Final = "livisi_reachability_change"
 SWITCH_DEVICE_TYPES: Final = ["ISS", "ISS2", "PSS", "PSSO"]
 SIREN_DEVICE_TYPES: Final = ["WSD", "WSD2"]
 VARIABLE_DEVICE_TYPE: Final = "VariableActuator"
+BUTTON_DEVICE_TYPES: Final = ["ISS2", "WSS2", "BRM8"]
+MOTION_DEVICE_TYPES: Final = ["WMD", "WMDO"]
 VRCC_DEVICE_TYPE: Final = "VRCC"
 WDS_DEVICE_TYPE: Final = "WDS"
 
-
 EVENT_BUTTON_PRESSED = "button_pressed"
+EVENT_MOTION_DETECTED = "motion_detected"
 
 MAX_TEMPERATURE: Final = 30.0
 MIN_TEMPERATURE: Final = 6.0
