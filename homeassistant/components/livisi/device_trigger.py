@@ -24,33 +24,30 @@ from homeassistant.helpers import (
 from homeassistant.helpers.trigger import TriggerActionType, TriggerInfo
 from homeassistant.helpers.typing import ConfigType
 
+from .const import BUTTON_COUNT, CONF_SUBTYPE
+
 from . import DOMAIN
 
 from .const import (
-    BUTTON_DEVICE_TYPES,
-    EVENT_BUTTON_PRESSED,
-    EVENT_MOTION_DETECTED,
     MOTION_DEVICE_TYPES,
     LIVISI_EVENT,
 )
 
-BUTTON_TRIGGER_TYPES = {
-    "button_1_pressed",
-    "button_2_pressed",
-    "button_1_long_pressed",
-    "button_2_long_pressed",
-}
+BUTTON_TRIGGER_TYPES = {"press", "long_press"}
 
 MOTION_TRIGGER_TYPES = {
     "motion_detected",
 }
 
-TRIGGER_TYPES = BUTTON_TRIGGER_TYPES.union(MOTION_TRIGGER_TYPES)
+BUTTON_TRIGGER_SUBTYPES = {
+    f"button_{idx}" for idx in range(1, max(BUTTON_COUNT.values()) + 1)
+}
 
 TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
     {
         vol.Optional(CONF_ENTITY_ID): cv.entity_id,
-        vol.Required(CONF_TYPE): vol.In(TRIGGER_TYPES),
+        vol.Required(CONF_TYPE): vol.In(BUTTON_TRIGGER_TYPES | MOTION_TRIGGER_TYPES),
+        vol.Optional(CONF_SUBTYPE): vol.In(BUTTON_TRIGGER_SUBTYPES),
     }
 )
 
@@ -66,15 +63,18 @@ async def async_get_triggers(
 
     triggers = []
 
-    if dev.model in BUTTON_DEVICE_TYPES:
+    buttons = BUTTON_COUNT.get(dev.model)
+    if buttons is not None:
         triggers += [
             {
                 CONF_PLATFORM: "device",
                 CONF_DEVICE_ID: device_id,
                 CONF_DOMAIN: DOMAIN,
                 CONF_TYPE: trigger_type,
+                CONF_SUBTYPE: trigger_subtype,
             }
             for trigger_type in BUTTON_TRIGGER_TYPES
+            for trigger_subtype in {f"button_{idx}" for idx in range(1, buttons + 1)}
         ]
 
     if dev.model in MOTION_DEVICE_TYPES:
@@ -99,46 +99,26 @@ async def async_attach_trigger(
 ) -> CALLBACK_TYPE:
     """Attach a trigger."""
 
-    if config[CONF_TYPE] in BUTTON_TRIGGER_TYPES:
-        button_index = 1
-        press_type = "ShortPress"
-        if config[CONF_TYPE] == "button_1_pressed":
-            button_index = 1
-        elif config[CONF_TYPE] == "button_2_pressed":
-            button_index = 2
-        elif config[CONF_TYPE] == "button_1_long_pressed":
-            button_index = 1
-            press_type = "LongPress"
-        elif config[CONF_TYPE] == "button_2_long_pressed":
-            button_index = 2
-            press_type = "LongPress"
+    trigger = config[CONF_TYPE]
 
-        event_config = event_trigger.TRIGGER_SCHEMA(
-            {
-                event_trigger.CONF_PLATFORM: CONF_EVENT,
-                event_trigger.CONF_EVENT_TYPE: LIVISI_EVENT,
-                event_trigger.CONF_EVENT_DATA: {
-                    CONF_TYPE: EVENT_BUTTON_PRESSED,
-                    CONF_DEVICE_ID: config[CONF_DEVICE_ID],
-                    "button_index": button_index,
-                    "press_type": press_type,
-                },
-            }
+    event_data = {
+        CONF_TYPE: trigger,
+        CONF_DEVICE_ID: config[CONF_DEVICE_ID],
+    }
+
+    if trigger in BUTTON_TRIGGER_TYPES:
+        event_data["button_index"] = int(trigger.split("_")[1])
+        event_data["press_type"] = (
+            "LongPress" if trigger.find("long_press" != -1) else "ShortPress"
         )
-        return await event_trigger.async_attach_trigger(
-            hass, event_config, action, trigger_info, platform_type="device"
-        )
-    elif config[CONF_TYPE] in MOTION_TRIGGER_TYPES:
-        event_config = event_trigger.TRIGGER_SCHEMA(
-            {
-                event_trigger.CONF_PLATFORM: CONF_EVENT,
-                event_trigger.CONF_EVENT_TYPE: LIVISI_EVENT,
-                event_trigger.CONF_EVENT_DATA: {
-                    CONF_TYPE: EVENT_MOTION_DETECTED,
-                    CONF_DEVICE_ID: config[CONF_DEVICE_ID],
-                },
-            }
-        )
-        return await event_trigger.async_attach_trigger(
-            hass, event_config, action, trigger_info, platform_type="device"
-        )
+
+    event_config = event_trigger.TRIGGER_SCHEMA(
+        {
+            event_trigger.CONF_PLATFORM: CONF_EVENT,
+            event_trigger.CONF_EVENT_TYPE: LIVISI_EVENT,
+            event_trigger.CONF_EVENT_DATA: event_data,
+        }
+    )
+    return await event_trigger.async_attach_trigger(
+        hass, event_config, action, trigger_info, platform_type="device"
+    )
