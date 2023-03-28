@@ -36,16 +36,12 @@ class LivisiEntity(CoordinatorEntity[LivisiDataUpdateCoordinator]):
         name = device["config"]["name"]
         unique_id = device["id"]
 
-        room_id: str | None = device.get("location")
-        room_name: str | None = None
-        if room_id is not None:
-            room_name = coordinator.rooms.get(room_id)
-
         self._attr_available = False
         self._attr_unique_id = unique_id
 
         device_name = name
 
+        room_name = coordinator.get_room_name(device)
         # For livisi climate entities, the device should have the room name from
         # the livisi setup, as each livisi room gets exactly one VRCC device. The entity
         # name will always be some localized value of "Climate", so the full element name
