@@ -55,10 +55,6 @@ async def async_setup_entry(
                     LOGGER.debug("Include battery sensor for: %s", device["type"])
                     coordinator.devices.add(device["id"])
                     entities.append(livisi_binary)
-            elif device["type"] in BATTERY_POWERED_DEVICES:
-                if device.get("batteryLow", False):
-                    ### TODO: How to update state
-                    pass
 
         async_add_entities(entities)
 
@@ -112,6 +108,22 @@ class LivisiBatteryLowSensor(LivisiEntity, BinarySensorEntity):
         """Initialize the Livisi window/door sensor."""
         super().__init__(config_entry, coordinator, device)
         self._attr_device_class = BinarySensorDeviceClass.BATTERY
+        self._handle_coordinator_update()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        device = next(
+            (
+                device
+                for device in self.coordinator.data
+                if device["id"] == self.unique_id
+            ),
+            None,
+        )
+        if device is not None:
+            self._attr_is_on = device.get("batteryLow", False)
+        super()._handle_coordinator_update()
 
 
 class LivisiWindowDoorSensor(LivisiBinarySensor):
