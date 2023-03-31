@@ -122,6 +122,14 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             available_room_config: dict[str, Any] = available_room["config"]
             self.rooms[available_room["id"]] = available_room_config["name"]
 
+    def get_room_name(self, device: dict[str, Any]) -> str | None:
+        """Gets the room name from a device."""
+        room_id: str | None = device.get("location")
+        room_name: str | None = None
+        if room_id is not None:
+            room_name = self.rooms.get(room_id)
+        return room_name
+
     def on_data(self, event_data: LivisiEvent) -> None:
         """Define a handler to fire when the data is received."""
         if event_data.type == LIVISI_EVENT_BUTTON_PRESSED:
