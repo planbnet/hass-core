@@ -38,10 +38,9 @@ class LivisiEntity(CoordinatorEntity[LivisiDataUpdateCoordinator]):
         device_id = device["id"]
 
         if battery:
-            name = device_name + " Battery Low"
+            name = "Battery Low"
             unique_id = device_id + "_battery"
         else:
-            name = device_name
             unique_id = device_id
 
         self._attr_available = False
@@ -56,7 +55,7 @@ class LivisiEntity(CoordinatorEntity[LivisiDataUpdateCoordinator]):
         # name will always be some localized value of "Climate", so the full element name
         # in homeassistent will be in the form of "Bedroom Climate"
         if use_room_as_device_name and room_name is not None:
-            self._attr_name = name
+            self._attr_name = device_name
             device_name = room_name
 
         self._attr_device_info = DeviceInfo(
