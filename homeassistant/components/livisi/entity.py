@@ -38,7 +38,7 @@ class LivisiEntity(CoordinatorEntity[LivisiDataUpdateCoordinator]):
         device_id = device["id"]
 
         if battery:
-            name = "Battery Low"
+            self._attr_name = "Battery Low"
             unique_id = device_id + "_battery"
         else:
             unique_id = device_id
