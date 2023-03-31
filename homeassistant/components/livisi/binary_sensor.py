@@ -8,6 +8,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -106,8 +107,9 @@ class LivisiBatteryLowSensor(LivisiEntity, BinarySensorEntity):
         device: dict[str, Any],
     ) -> None:
         """Initialize the Livisi window/door sensor."""
-        super().__init__(config_entry, coordinator, device)
+        super().__init__(config_entry, coordinator, device, battery=True)
         self._attr_device_class = BinarySensorDeviceClass.BATTERY
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._handle_coordinator_update()
 
     @callback
@@ -117,13 +119,12 @@ class LivisiBatteryLowSensor(LivisiEntity, BinarySensorEntity):
             (
                 device
                 for device in self.coordinator.data
-                if device["id"] == self.unique_id
+                if device["id"] + "_battery" == self.unique_id
             ),
             None,
         )
         if device is not None:
             self._attr_is_on = device.get("batteryLow", False)
-        super()._handle_coordinator_update()
 
 
 class LivisiWindowDoorSensor(LivisiBinarySensor):
