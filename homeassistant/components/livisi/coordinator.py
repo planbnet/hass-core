@@ -113,6 +113,7 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
 
             if model in ENTITYLESS_DEVICES and not device_id in self.devices:
                 device_registry.async_get_or_create(
+                    config_entry_id=device_id,
                     identifiers={(DOMAIN, device_id)},
                     manufacturer=device.get("manufacturer"),
                     name=device.get("config", {}).get("name"),
