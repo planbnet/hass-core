@@ -33,7 +33,7 @@ from .const import (
     LIVISI_EVENT,
 )
 
-BUTTON_TRIGGER_TYPES = {"press", "long_press"}
+BUTTON_TRIGGER_TYPES = {"button_press", "button_long_press"}
 
 MOTION_TRIGGER_TYPES = {
     "motion_detected",
