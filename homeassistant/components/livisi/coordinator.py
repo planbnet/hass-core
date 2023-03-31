@@ -17,7 +17,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.helpers import device_registry as dr
 
 from .const import (
     AVATAR,
@@ -26,8 +25,6 @@ from .const import (
     CONF_HOST,
     CONF_PASSWORD,
     DEVICE_POLLING_DELAY,
-    DOMAIN,
-    ENTITYLESS_DEVICES,
     EVENT_BUTTON_PRESSED,
     EVENT_MOTION_DETECTED,
     LIVISI_REACHABILITY_CHANGE,
@@ -100,28 +97,11 @@ class LivisiDataUpdateCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
 
     async def async_get_devices(self) -> list[dict[str, Any]]:
         """Set the discovered devices list."""
-        device_registry = dr.async_get(self.hass)
-
         devices = await self.aiolivisi.async_get_devices()
         capability_mapping = {}
         for device in devices:
-            device_id = device.get("id")
-            model = device.get("type")
-
             for capability_id in device.get("capabilities", []):
-                capability_mapping[capability_id] = device_id
-
-            if model in ENTITYLESS_DEVICES and not device_id in self.devices:
-                device_registry.async_get_or_create(
-                    config_entry_id=device_id,
-                    identifiers={(DOMAIN, device_id)},
-                    manufacturer=device.get("manufacturer"),
-                    name=device.get("config", {}).get("name"),
-                    model=model,
-                    suggested_area=self.get_room_name(device),
-                    via_device=(DOMAIN, self.config_entry.entry_id),
-                )
-
+                capability_mapping[capability_id] = device["id"]
         self.capability_to_device = capability_mapping
         return devices
 
