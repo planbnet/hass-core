@@ -17,11 +17,19 @@
   },
   "device_automation": {
     "trigger_type": {
-      "button_1_pressed": "Button 1 pressed",
-      "button_2_pressed": "Button 2 pressed",
-      "button_1_long_pressed": "Button 1 long pressed",
-      "button_2_long_pressed": "Button 2 long pressed",
+      "button_long_press": "long press",
+      "button_press": "press",
       "motion_detected": "Motion detected"
+    },
+    "trigger_subtype": {
+      "button_1": "Button 1",
+      "button_2": "Button 2",
+      "button_3": "Button 3",
+      "button_4": "Button 4",
+      "button_5": "Button 5",
+      "button_6": "Button 6",
+      "button_7": "Button 7",
+      "button_8": "Button 8"
     }
   }
 }
