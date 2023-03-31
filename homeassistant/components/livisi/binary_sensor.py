@@ -8,11 +8,19 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import entity_registry as er
 
-from .const import DOMAIN, LIVISI_STATE_CHANGE, LOGGER, WDS_DEVICE_TYPE
+from .const import (
+    BATTERY_POWERED_DEVICES,
+    DOMAIN,
+    LIVISI_STATE_CHANGE,
+    LOGGER,
+    WDS_DEVICE_TYPE,
+)
 from .coordinator import LivisiDataUpdateCoordinator
 from .entity import LivisiEntity
 
@@ -32,14 +40,23 @@ async def async_setup_entry(
         shc_devices: list[dict[str, Any]] = coordinator.data
         entities: list[BinarySensorEntity] = []
         for device in shc_devices:
-            if device["id"] not in known_devices and device["type"] == WDS_DEVICE_TYPE:
-                livisi_binary: BinarySensorEntity = LivisiWindowDoorSensor(
-                    config_entry, coordinator, device
-                )
-                LOGGER.debug("Include device type: %s", device["type"])
-                coordinator.devices.add(device["id"])
+            if device["id"] not in known_devices:
                 known_devices.add(device["id"])
-                entities.append(livisi_binary)
+                if device["type"] == WDS_DEVICE_TYPE:
+                    livisi_binary: BinarySensorEntity = LivisiWindowDoorSensor(
+                        config_entry, coordinator, device
+                    )
+                    LOGGER.debug("Include device type: %s", device["type"])
+                    coordinator.devices.add(device["id"])
+                    entities.append(livisi_binary)
+                if device["type"] in BATTERY_POWERED_DEVICES:
+                    livisi_binary: BinarySensorEntity = LivisiBatteryLowSensor(
+                        config_entry, coordinator, device
+                    )
+                    LOGGER.debug("Include battery sensor for: %s", device["type"])
+                    coordinator.devices.add(device["id"])
+                    entities.append(livisi_binary)
+
         async_add_entities(entities)
 
     config_entry.async_on_unload(
@@ -78,6 +95,36 @@ class LivisiBinarySensor(LivisiEntity, BinarySensorEntity):
         """Update the state of the device."""
         self._attr_is_on = state
         self.async_write_ha_state()
+
+
+class LivisiBatteryLowSensor(LivisiEntity, BinarySensorEntity):
+    """Represents the Battery Low state as a Binary Sensor Entity."""
+
+    def __init__(
+        self,
+        config_entry: ConfigEntry,
+        coordinator: LivisiDataUpdateCoordinator,
+        device: dict[str, Any],
+    ) -> None:
+        """Initialize the Livisi window/door sensor."""
+        super().__init__(config_entry, coordinator, device, battery=True)
+        self._attr_device_class = BinarySensorDeviceClass.BATTERY
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._handle_coordinator_update()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        device = next(
+            (
+                device
+                for device in self.coordinator.data
+                if device["id"] + "_battery" == self.unique_id
+            ),
+            None,
+        )
+        if device is not None:
+            self._attr_is_on = device.get("batteryLow", False)
 
 
 class LivisiWindowDoorSensor(LivisiBinarySensor):

@@ -27,21 +27,26 @@ class LivisiEntity(CoordinatorEntity[LivisiDataUpdateCoordinator]):
         coordinator: LivisiDataUpdateCoordinator,
         device: dict[str, Any],
         *,
+        battery: bool = False,
         use_room_as_device_name: bool = False,
     ) -> None:
         """Initialize the common properties of a Livisi device."""
         self.aio_livisi = coordinator.aiolivisi
         self.capabilities: Mapping[str, Any] = device[CAPABILITY_MAP]
 
-        name = device["config"]["name"]
-        unique_id = device["id"]
+        device_name = device["config"]["name"]
+        device_id = device["id"]
+
+        if battery:
+            name = device_name + " Battery Low"
+            unique_id = device_id + "_battery"
+        else:
+            name = device_name
+            unique_id = device_id
 
         self._attr_available = False
         self._attr_unique_id = unique_id
 
-        device_name = name
-
-        room_name = coordinator.get_room_name(device)
         # For livisi climate entities, the device should have the room name from
         # the livisi setup, as each livisi room gets exactly one VRCC device. The entity
         # name will always be some localized value of "Climate", so the full element name
@@ -51,7 +56,7 @@ class LivisiEntity(CoordinatorEntity[LivisiDataUpdateCoordinator]):
             device_name = room_name
 
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, unique_id)},
+            identifiers={(DOMAIN, device_id)},
             manufacturer=device["manufacturer"],
             model=device["type"],
             name=device_name,
