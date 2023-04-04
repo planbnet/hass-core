@@ -19,7 +19,6 @@ from .const import (
     LIVISI_STATE_CHANGE,
     LOGGER,
     WDS_DEVICE_TYPE,
-    VRCC_DEVICE_TYPE,
 )
 from .coordinator import LivisiDataUpdateCoordinator
 from .entity import LivisiEntity
