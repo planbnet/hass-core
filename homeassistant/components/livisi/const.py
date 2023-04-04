@@ -20,7 +20,7 @@ VRCC_DEVICE_TYPE: Final = "VRCC"
 WDS_DEVICE_TYPE: Final = "WDS"
 
 BATTERY_POWERED_DEVICES = [
-    "BRM8",
+    "BRC8",
     "ISC2",
     "RST",
     "RST2",
