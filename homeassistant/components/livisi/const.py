@@ -27,10 +27,20 @@ MOTION_DEVICE_TYPES: Final = ["WMD", "WMDO"]
 VRCC_DEVICE_TYPE: Final = "VRCC"
 WDS_DEVICE_TYPE: Final = "WDS"
 
+BATTERY_POWERED_DEVICES = [
+    "BRC8",
+    "ISC2",
+    "RST",
+    "RST2",
+    "WDS",
+    "WMD",
+    "WMDO",
+    "WSD",
+    "WSD2",
+]
+
 EVENT_BUTTON_PRESSED = "button_pressed"
 EVENT_MOTION_DETECTED = "motion_detected"
-
-BATTERY_POWERED_DEVICES = ["WDS", "ISC2", "BRC8"]
 
 BUTTON_COUNT = {"BRC8": 8, "ISC2": 2, "ISS2": 2}
 
