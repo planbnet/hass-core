@@ -19,7 +19,17 @@ MOTION_DEVICE_TYPES: Final = ["WMD", "WMDO"]
 VRCC_DEVICE_TYPE: Final = "VRCC"
 WDS_DEVICE_TYPE: Final = "WDS"
 
-BATTERY_POWERED_DEVICES = ["WDS", "ISC2", "BRM8", "WMD", "WMDO", "VRCC", "WSD", "WSD2"]
+BATTERY_POWERED_DEVICES = [
+    "BRM8",
+    "ISC2",
+    "RST",
+    "RST2",
+    "WDS",
+    "WMD",
+    "WMDO",
+    "WSD",
+    "WSD2",
+]
 
 EVENT_MOTION_DETECTED = "motion_detected"
 

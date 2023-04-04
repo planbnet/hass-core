@@ -125,18 +125,7 @@ class LivisiBatteryLowSensor(LivisiEntity, BinarySensorEntity):
         )
 
         if device is not None:
-            if device["type"] == VRCC_DEVICE_TYPE:
-                thermostat_ids = (
-                    device.get("config", {}).get("underlyingDeviceIds", "").split(" ")
-                )
-                for tid in thermostat_ids:
-                    self._attr_is_on = any(
-                        thermostat.get("batteryLow", False)
-                        for thermostat in self.coordinator.data
-                        if thermostat["id"] == tid
-                    )
-            else:
-                self._attr_is_on = device.get("batteryLow", False)
+            self._attr_is_on = device.get("batteryLow", False)
 
 
 class LivisiWindowDoorSensor(LivisiBinarySensor):
