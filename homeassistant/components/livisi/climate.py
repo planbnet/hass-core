@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from aiolivisi.const import CAPABILITY_CONFIG
+
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
@@ -152,16 +153,12 @@ class LivisiClimate(LivisiEntity, ClimateEntity):
         """Calculate current hvac state based on target and current temperature."""
         if self._attr_current_temperature is None:
             self._attr_hvac_action = HVACAction.OFF
-            self._attr_hvac_mode = HVACMode.OFF
         elif self._attr_target_temperature > self._attr_current_temperature:
             self._attr_hvac_action = HVACAction.HEATING
-            self._attr_hvac_mode = HVACMode.HEAT
         elif self._attr_target_temperature == self._attr_min_temp:
             self._attr_hvac_action = HVACAction.OFF
-            self._attr_hvac_mode = HVACMode.OFF
         else:
             self._attr_hvac_action = HVACAction.IDLE
-            self._attr_hvac_mode = HVACMode.AUTO
 
     @callback
     def update_target_temperature(self, target_temperature: float) -> None:
