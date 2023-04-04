@@ -12,7 +12,6 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import entity_registry as er
 
 from .const import (
     BATTERY_POWERED_DEVICES,
@@ -20,6 +19,7 @@ from .const import (
     LIVISI_STATE_CHANGE,
     LOGGER,
     WDS_DEVICE_TYPE,
+    VRCC_DEVICE_TYPE,
 )
 from .coordinator import LivisiDataUpdateCoordinator
 from .entity import LivisiEntity
@@ -123,8 +123,20 @@ class LivisiBatteryLowSensor(LivisiEntity, BinarySensorEntity):
             ),
             None,
         )
+
         if device is not None:
-            self._attr_is_on = device.get("batteryLow", False)
+            if device["type"] == VRCC_DEVICE_TYPE:
+                thermostat_ids = (
+                    device.get("config", {}).get("underlyingDeviceIds", "").split(" ")
+                )
+                for tid in thermostat_ids:
+                    self._attr_is_on = any(
+                        thermostat.get("batteryLow", False)
+                        for thermostat in self.coordinator.data
+                        if thermostat["id"] == tid
+                    )
+            else:
+                self._attr_is_on = device.get("batteryLow", False)
 
 
 class LivisiWindowDoorSensor(LivisiBinarySensor):
