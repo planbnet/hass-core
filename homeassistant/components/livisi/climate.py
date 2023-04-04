@@ -64,8 +64,8 @@ async def async_setup_entry(
 class LivisiClimate(LivisiEntity, ClimateEntity):
     """Represents the Livisi Climate."""
 
-    _attr_hvac_modes = []
-    _attr_hvac_mode = HVACMode.AUTO
+    _attr_hvac_modes = [HVACMode.HEAT]
+    _attr_hvac_mode = HVACMode.HEAT
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
 
@@ -151,7 +151,10 @@ class LivisiClimate(LivisiEntity, ClimateEntity):
 
     def _update_hvac_state(self) -> None:
         """Calculate current hvac state based on target and current temperature."""
-        if self._attr_current_temperature is None:
+        if (
+            self._attr_current_temperature is None
+            or self._attr_target_temperature is None
+        ):
             self._attr_hvac_action = HVACAction.OFF
         elif self._attr_target_temperature > self._attr_current_temperature:
             self._attr_hvac_action = HVACAction.HEATING
