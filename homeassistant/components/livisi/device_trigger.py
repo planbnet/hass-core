@@ -40,7 +40,7 @@ MOTION_TRIGGER_TYPES = {
 }
 
 BUTTON_TRIGGER_SUBTYPES = {
-    f"button_{idx}" for idx in range(1, max(BUTTON_COUNT.values()) + 1)
+    f"button_{idx}" for idx in range(0, max(BUTTON_COUNT.values()))
 }
 
 TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
@@ -74,7 +74,7 @@ async def async_get_triggers(
                 CONF_SUBTYPE: trigger_subtype,
             }
             for trigger_type in BUTTON_TRIGGER_TYPES
-            for trigger_subtype in {f"button_{idx}" for idx in range(1, buttons + 1)}
+            for trigger_subtype in {f"button_{idx}" for idx in range(0, buttons)}
         ]
 
     if dev.model in MOTION_DEVICE_TYPES:
