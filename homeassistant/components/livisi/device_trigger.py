@@ -29,6 +29,8 @@ from .const import BUTTON_COUNT, CONF_SUBTYPE
 from . import DOMAIN
 
 from .const import (
+    EVENT_BUTTON_PRESSED,
+    EVENT_MOTION_DETECTED,
     MOTION_DEVICE_TYPES,
     LIVISI_EVENT,
 )
@@ -108,15 +110,19 @@ async def async_attach_trigger(
     livisi_id = next(iter(device.identifiers))[1]
 
     event_data = {
-        CONF_TYPE: trigger,
         CONF_DEVICE_ID: livisi_id,
     }
 
     if trigger in BUTTON_TRIGGER_TYPES:
+        event_data[CONF_TYPE] = EVENT_BUTTON_PRESSED
         event_data["button_index"] = int(config[CONF_SUBTYPE].split("_")[1])
         event_data["press_type"] = (
             "LongPress" if trigger.find("long_press") != -1 else "ShortPress"
         )
+    elif trigger in MOTION_TRIGGER_TYPES:
+        event_data[CONF_TYPE] = EVENT_MOTION_DETECTED
+    else:
+        return
 
     event_config = event_trigger.TRIGGER_SCHEMA(
         {
