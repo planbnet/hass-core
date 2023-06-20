@@ -5,12 +5,11 @@ from collections.abc import Callable
 import functools
 import logging
 import math
-from typing import Any, Generic, NamedTuple, TypeVar, cast, overload
+from typing import Any, Generic, NamedTuple, TypeVar, cast
 
 from aioesphomeapi import (
     APIClient,
     APIConnectionError,
-    APIIntEnum,
     APIVersion,
     DeviceInfo as EsphomeDeviceInfo,
     EntityCategory as EsphomeEntityCategory,
@@ -23,6 +22,7 @@ from aioesphomeapi import (
     RequiresEncryptionAPIError,
     UserService,
     UserServiceArgType,
+    VoiceAssistantEventType,
 )
 from awesomeversion import AwesomeVersion
 import voluptuous as vol
@@ -45,7 +45,10 @@ from homeassistant.helpers import template
 import homeassistant.helpers.config_validation as cv
 import homeassistant.helpers.device_registry as dr
 from homeassistant.helpers.device_registry import format_mac
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
@@ -56,37 +59,42 @@ from homeassistant.helpers.issue_registry import (
 )
 from homeassistant.helpers.service import async_set_service_schema
 from homeassistant.helpers.template import Template
+from homeassistant.helpers.typing import ConfigType
 
 from .bluetooth import async_connect_scanner
 from .const import DOMAIN
-from .dashboard import async_get_dashboard
+from .dashboard import async_get_dashboard, async_setup as async_setup_dashboard
 from .domain_data import DomainData
 
 # Import config flow so that it's added to the registry
 from .entry_data import RuntimeEntryData
+from .enum_mapper import EsphomeEnumMapper
+from .voice_assistant import VoiceAssistantUDPServer
 
 CONF_DEVICE_NAME = "device_name"
 CONF_NOISE_PSK = "noise_psk"
 _LOGGER = logging.getLogger(__name__)
 _R = TypeVar("_R")
 
-STABLE_BLE_VERSION_STR = "2022.12.4"
+STABLE_BLE_VERSION_STR = "2023.6.0"
 STABLE_BLE_VERSION = AwesomeVersion(STABLE_BLE_VERSION_STR)
 PROJECT_URLS = {
     "esphome.bluetooth-proxy": "https://esphome.github.io/bluetooth-proxies/",
 }
 DEFAULT_URL = f"https://esphome.io/changelog/{STABLE_BLE_VERSION_STR}.html"
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 
 @callback
 def _async_check_firmware_version(
-    hass: HomeAssistant, device_info: EsphomeDeviceInfo
+    hass: HomeAssistant, device_info: EsphomeDeviceInfo, api_version: APIVersion
 ) -> None:
     """Create or delete an the ble_firmware_outdated issue."""
     # ESPHome device_info.mac_address is the unique_id
     issue = f"ble_firmware_outdated-{device_info.mac_address}"
     if (
-        not device_info.bluetooth_proxy_version
+        not device_info.bluetooth_proxy_feature_flags_compat(api_version)
         # If the device has a project name its up to that project
         # to tell them about the firmware version update so we don't notify here
         or (device_info.project_name and device_info.project_name not in PROJECT_URLS)
@@ -133,6 +141,12 @@ def _async_check_using_api_password(
     )
 
 
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the esphome component."""
+    await async_setup_dashboard(hass)
+    return True
+
+
 async def async_setup_entry(  # noqa: C901
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
@@ -141,7 +155,7 @@ async def async_setup_entry(  # noqa: C901
     port = entry.data[CONF_PORT]
     password = entry.data[CONF_PASSWORD]
     noise_psk = entry.data.get(CONF_NOISE_PSK)
-    device_id: str | None = None
+    device_id: str = None  # type: ignore[assignment]
 
     zeroconf_instance = await zeroconf.async_get_instance(hass)
 
@@ -284,6 +298,53 @@ async def async_setup_entry(  # noqa: C901
             _send_home_assistant_state(entity_id, attribute, hass.states.get(entity_id))
         )
 
+    voice_assistant_udp_server: VoiceAssistantUDPServer | None = None
+
+    def _handle_pipeline_event(
+        event_type: VoiceAssistantEventType, data: dict[str, str] | None
+    ) -> None:
+        cli.send_voice_assistant_event(event_type, data)
+
+    def _handle_pipeline_finished() -> None:
+        nonlocal voice_assistant_udp_server
+
+        entry_data.async_set_assist_pipeline_state(False)
+
+        if voice_assistant_udp_server is not None:
+            voice_assistant_udp_server.close()
+            voice_assistant_udp_server = None
+
+    async def _handle_pipeline_start(conversation_id: str, use_vad: bool) -> int | None:
+        """Start a voice assistant pipeline."""
+        nonlocal voice_assistant_udp_server
+
+        if voice_assistant_udp_server is not None:
+            return None
+
+        voice_assistant_udp_server = VoiceAssistantUDPServer(
+            hass, entry_data, _handle_pipeline_event, _handle_pipeline_finished
+        )
+        port = await voice_assistant_udp_server.start_server()
+
+        hass.async_create_background_task(
+            voice_assistant_udp_server.run_pipeline(
+                device_id=device_id,
+                conversation_id=conversation_id or None,
+                use_vad=use_vad,
+            ),
+            "esphome.voice_assistant_udp_server.run_pipeline",
+        )
+        entry_data.async_set_assist_pipeline_state(True)
+
+        return port
+
+    async def _handle_pipeline_stop() -> None:
+        """Stop a voice assistant pipeline."""
+        nonlocal voice_assistant_udp_server
+
+        if voice_assistant_udp_server is not None:
+            voice_assistant_udp_server.stop()
+
     async def on_connect() -> None:
         """Subscribe to states and list entities on successful API login."""
         nonlocal device_id
@@ -311,7 +372,7 @@ async def async_setup_entry(  # noqa: C901
             if entry_data.device_info.name:
                 reconnect_logic.name = entry_data.device_info.name
 
-            if device_info.bluetooth_proxy_version:
+            if device_info.bluetooth_proxy_feature_flags_compat(cli.api_version):
                 entry_data.disconnect_callbacks.append(
                     await async_connect_scanner(hass, entry, cli, entry_data)
                 )
@@ -328,13 +389,21 @@ async def async_setup_entry(  # noqa: C901
             await cli.subscribe_service_calls(async_on_service_call)
             await cli.subscribe_home_assistant_states(async_on_state_subscription)
 
+            if device_info.voice_assistant_version:
+                entry_data.disconnect_callbacks.append(
+                    await cli.subscribe_voice_assistant(
+                        _handle_pipeline_start,
+                        _handle_pipeline_stop,
+                    )
+                )
+
             hass.async_create_task(entry_data.async_save_to_store())
         except APIConnectionError as err:
             _LOGGER.warning("Error getting initial data for %s: %s", host, err)
             # Re-connection logic will trigger after this
             await cli.disconnect()
         else:
-            _async_check_firmware_version(hass, device_info)
+            _async_check_firmware_version(hass, device_info, entry_data.api_version)
             _async_check_using_api_password(hass, device_info, bool(password))
 
     async def on_disconnect() -> None:
@@ -345,11 +414,19 @@ async def async_setup_entry(  # noqa: C901
             disconnect_cb()
         entry_data.disconnect_callbacks = []
         entry_data.available = False
-        # Clear out the states so that we will always dispatch
+        # Mark state as stale so that we will always dispatch
         # the next state update of that type when the device reconnects
-        for state_keys in entry_data.state.values():
-            state_keys.clear()
-        entry_data.async_update_device_state(hass)
+        entry_data.stale_state = {
+            (type(entity_state), key)
+            for state_dict in entry_data.state.values()
+            for key, entity_state in state_dict.items()
+        }
+        if not hass.is_stopping:
+            # Avoid marking every esphome entity as unavailable on shutdown
+            # since it generates a lot of state changed events and database
+            # writes when we already know we're shutting down and the state
+            # will be cleared anyway.
+            entry_data.async_update_device_state(hass)
 
     async def on_connect_error(err: Exception) -> None:
         """Start reauth flow if appropriate connect error type."""
@@ -635,7 +712,7 @@ async def platform_async_setup_entry(
                 old_infos.pop(info.key)
             else:
                 # Create new entity
-                entity = entity_type(entry_data, component_key, info.key, state_type)
+                entity = entity_type(entry_data, component_key, info, state_type)
                 add_entities.append(entity)
             new_infos[info.key] = info
 
@@ -648,8 +725,15 @@ async def platform_async_setup_entry(
         # Then update the actual info
         entry_data.info[component_key] = new_infos
 
-        # Add entities to Home Assistant
-        async_add_entities(add_entities)
+        async_dispatcher_send(
+            hass,
+            entry_data.signal_component_static_info_updated(component_key),
+            new_infos,
+        )
+
+        if add_entities:
+            # Add entities to Home Assistant
+            async_add_entities(add_entities)
 
     entry_data.cleanup_callbacks.append(
         async_dispatcher_connect(
@@ -682,41 +766,6 @@ def esphome_state_property(
     return _wrapper
 
 
-_EnumT = TypeVar("_EnumT", bound=APIIntEnum)
-_ValT = TypeVar("_ValT")
-
-
-class EsphomeEnumMapper(Generic[_EnumT, _ValT]):
-    """Helper class to convert between hass and esphome enum values."""
-
-    def __init__(self, mapping: dict[_EnumT, _ValT]) -> None:
-        """Construct a EsphomeEnumMapper."""
-        # Add none mapping
-        augmented_mapping: dict[
-            _EnumT | None, _ValT | None
-        ] = mapping  # type: ignore[assignment]
-        augmented_mapping[None] = None
-
-        self._mapping = augmented_mapping
-        self._inverse: dict[_ValT, _EnumT] = {v: k for k, v in mapping.items()}
-
-    @overload
-    def from_esphome(self, value: _EnumT) -> _ValT:
-        ...
-
-    @overload
-    def from_esphome(self, value: _EnumT | None) -> _ValT | None:
-        ...
-
-    def from_esphome(self, value: _EnumT | None) -> _ValT | None:
-        """Convert from an esphome int representation to a hass string."""
-        return self._mapping[value]
-
-    def from_hass(self, value: _ValT) -> _EnumT:
-        """Convert from a hass string to a esphome int representation."""
-        return self._inverse[value]
-
-
 ICON_SCHEMA = vol.Schema(cv.icon)
 
 
@@ -735,18 +784,20 @@ class EsphomeEntity(Entity, Generic[_InfoT, _StateT]):
     """Define a base esphome entity."""
 
     _attr_should_poll = False
+    _static_info: _InfoT
 
     def __init__(
         self,
         entry_data: RuntimeEntryData,
         component_key: str,
-        key: int,
+        entity_info: EntityInfo,
         state_type: type[_StateT],
     ) -> None:
         """Initialize."""
         self._entry_data = entry_data
         self._component_key = component_key
-        self._key = key
+        self._key = entity_info.key
+        self._static_info = cast(_InfoT, entity_info)
         self._state_type = state_type
         if entry_data.device_info is not None and entry_data.device_info.friendly_name:
             self._attr_has_entity_name = True
@@ -775,6 +826,25 @@ class EsphomeEntity(Entity, Generic[_InfoT, _StateT]):
             )
         )
 
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                self._entry_data.signal_component_static_info_updated(
+                    self._component_key
+                ),
+                self._on_static_info_update,
+            )
+        )
+
+    @callback
+    def _on_static_info_update(self, static_infos: dict[int, EntityInfo]) -> None:
+        """Save the static info for this entity when it changes.
+
+        This method can be overridden in child classes to know
+        when the static info changes.
+        """
+        self._static_info = cast(_InfoT, static_infos[self._key])
+
     @callback
     def _on_state_update(self) -> None:
         # Behavior can be changed in child classes
@@ -797,16 +867,6 @@ class EsphomeEntity(Entity, Generic[_InfoT, _StateT]):
     @property
     def _api_version(self) -> APIVersion:
         return self._entry_data.api_version
-
-    @property
-    def _static_info(self) -> _InfoT:
-        # Check if value is in info database. Use a single lookup.
-        info = self._entry_data.info[self._component_key].get(self._key)
-        if info is not None:
-            return cast(_InfoT, info)
-        # This entity is in the removal project and has been removed from .info
-        # already, look in old_info
-        return cast(_InfoT, self._entry_data.old_info[self._component_key][self._key])
 
     @property
     def _device_info(self) -> EsphomeDeviceInfo:
@@ -878,3 +938,40 @@ class EsphomeEntity(Entity, Generic[_InfoT, _StateT]):
         if not self._static_info.entity_category:
             return None
         return ENTITY_CATEGORIES.from_esphome(self._static_info.entity_category)
+
+
+class EsphomeAssistEntity(Entity):
+    """Define a base entity for Assist Pipeline entities."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(self, entry_data: RuntimeEntryData) -> None:
+        """Initialize the binary sensor."""
+        self._entry_data: RuntimeEntryData = entry_data
+        self._attr_unique_id = (
+            f"{self._device_info.mac_address}-{self.entity_description.key}"
+        )
+
+    @property
+    def _device_info(self) -> EsphomeDeviceInfo:
+        assert self._entry_data.device_info is not None
+        return self._entry_data.device_info
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device registry information for this entity."""
+        return DeviceInfo(
+            connections={(dr.CONNECTION_NETWORK_MAC, self._device_info.mac_address)}
+        )
+
+    @callback
+    def _update(self) -> None:
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Register update callback."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self._entry_data.async_subscribe_assist_pipeline_update(self._update)
+        )

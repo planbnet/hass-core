@@ -164,12 +164,12 @@ async def test_setup_min(hass: HomeAssistant, mock_async_zeroconf: None) -> None
         hass,
         BRIDGE_NAME,
         DEFAULT_PORT,
-        "1.2.3.4",
+        [None],
         ANY,
         ANY,
         {},
         HOMEKIT_MODE_BRIDGE,
-        None,
+        "1.2.3.4",
         entry.entry_id,
         entry.title,
         devices=[],
@@ -206,12 +206,12 @@ async def test_removing_entry(
         hass,
         BRIDGE_NAME,
         DEFAULT_PORT,
-        "1.2.3.4",
+        [None],
         ANY,
         ANY,
         {},
         HOMEKIT_MODE_BRIDGE,
-        None,
+        "1.2.3.4",
         entry.entry_id,
         entry.title,
         devices=[],
@@ -747,6 +747,7 @@ async def test_homekit_start_with_a_device(
     entry = MockConfigEntry(
         domain=DOMAIN, data={CONF_NAME: "mock_name", CONF_PORT: 12345}
     )
+    assert await async_setup_component(hass, "homeassistant", {})
     assert await async_setup_component(hass, "demo", {"demo": {}})
     await hass.async_block_till_done()
 
@@ -815,14 +816,10 @@ async def test_homekit_reset_accessories(
     homekit = _mock_homekit(hass, entry, HOMEKIT_MODE_BRIDGE)
 
     with patch(f"{PATH_HOMEKIT}.HomeKit", return_value=homekit), patch(
-        "pyhap.accessory.Bridge.add_accessory"
-    ) as mock_add_accessory, patch(
         "pyhap.accessory_driver.AccessoryDriver.config_changed"
-    ), patch(
-        "pyhap.accessory_driver.AccessoryDriver.async_start"
-    ), patch(
+    ), patch("pyhap.accessory_driver.AccessoryDriver.async_start"), patch(
         f"{PATH_HOMEKIT}.accessories.HomeAccessory.run"
-    ), patch.object(
+    ) as mock_run_accessory, patch.object(
         homekit_base, "_HOMEKIT_CONFIG_UPDATE_TIME", 0
     ):
         await async_init_entry(hass, entry)
@@ -837,8 +834,9 @@ async def test_homekit_reset_accessories(
             blocking=True,
         )
         await hass.async_block_till_done()
+        await hass.async_block_till_done()
 
-        assert mock_add_accessory.called
+        assert mock_run_accessory.called
         homekit.status = STATUS_READY
         await homekit.async_stop()
 
@@ -1479,12 +1477,12 @@ async def test_yaml_updates_update_config_entry_for_name(
         hass,
         BRIDGE_NAME,
         12345,
-        "1.2.3.4",
+        [None],
         ANY,
         ANY,
         {},
         HOMEKIT_MODE_BRIDGE,
-        None,
+        "1.2.3.4",
         entry.entry_id,
         entry.title,
         devices=[],
@@ -1646,7 +1644,6 @@ async def test_homekit_ignored_missing_devices(
     light = entity_registry.async_get_or_create(
         "light", "powerwall", "demo", device_id=device_entry.id
     )
-    before_removal = entity_registry.entities.copy()
     # Delete the device to make sure we fallback
     # to using the platform
     device_registry.async_remove_device(device_entry.id)
@@ -1654,7 +1651,23 @@ async def test_homekit_ignored_missing_devices(
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     # Restore the registry
-    entity_registry.entities = before_removal
+    entity_registry.async_get_or_create(
+        "binary_sensor",
+        "powerwall",
+        "battery_charging",
+        device_id=device_entry.id,
+        original_device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
+    )
+    entity_registry.async_get_or_create(
+        "sensor",
+        "powerwall",
+        "battery",
+        device_id=device_entry.id,
+        original_device_class=SensorDeviceClass.BATTERY,
+    )
+    light = entity_registry.async_get_or_create(
+        "light", "powerwall", "demo", device_id=device_entry.id
+    )
 
     hass.states.async_set(light.entity_id, STATE_ON)
     hass.states.async_set("light.two", STATE_ON)
@@ -1837,12 +1850,12 @@ async def test_reload(hass: HomeAssistant, mock_async_zeroconf: None) -> None:
         hass,
         "reloadable",
         12345,
-        "1.2.3.4",
+        [None],
         ANY,
         False,
         {},
         HOMEKIT_MODE_BRIDGE,
-        None,
+        "1.2.3.4",
         entry.entry_id,
         entry.title,
         devices=[],
@@ -1872,12 +1885,12 @@ async def test_reload(hass: HomeAssistant, mock_async_zeroconf: None) -> None:
         hass,
         "reloadable",
         45678,
-        "1.2.3.4",
+        [None],
         ANY,
         False,
         {},
         HOMEKIT_MODE_BRIDGE,
-        None,
+        "1.2.3.4",
         entry.entry_id,
         entry.title,
         devices=[],
